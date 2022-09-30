@@ -3,12 +3,12 @@
 -export([main/3]).
 
 main(NumNodes, Topology, Algo) ->
-    register(manager,spawn(topologies,start,[NumNodes,Topology,Algo])),
+    register(manager,spawn(namanager,start,[NumNodes,Topology,Algo])),
     
     Ltopology = string:to_lower(Topology),
-    io:format("~p~n",[Ltopology]),
+    io:format("~p~n",[Algo]),
     if Ltopology == "fullnetwork" ->
-        nmanager:fullNetwork(NumNodes,Algo);
+        fullNetwork(NumNodes,Algo);
     Ltopology == 'line' ->
         line(NumNodes,Algo);
     Ltopology == '3dgrid' ->

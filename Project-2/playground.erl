@@ -5,12 +5,12 @@
 start()->
     Lst=[1000,123,12334,123435,1232136,12357,1238654],
     io:fwrite("~w~n",[Lst]),
-    % lists:foreach(fun(Elem)->
-    %                     io:format("element~w\n",[Elem])
-    %                     end,Lst).
-    NList = lists:enumerate(Lst),
+    lists:foreach(fun(Elem)->
+                        io:format("element~w\n",[Elem])
+                        end,Lst).
+    % NList = lists:enumerate(Lst),
     
-    NList.
+    % NList.
 
     % Node_list = lists:enumerate()
     % X = rand:uniform(length(Lst)),
