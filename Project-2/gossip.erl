@@ -3,10 +3,9 @@
 -export([main/3]).
 
 main(NumNodes, Topology, Algo) ->
-    register(manager,spawn(namanager,start,[NumNodes,Topology,Algo])),
-    
+    register(listener,spawn(nmanager,listener,[1,[]])),
     Ltopology = string:to_lower(Topology),
-    io:format("~p~n",[Algo]),
+    % io:format("~p~n",[Ltopology]),
     if Ltopology == "fullnetwork" ->
         fullNetwork(NumNodes,Algo);
     Ltopology == 'line' ->
