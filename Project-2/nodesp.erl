@@ -3,10 +3,35 @@
 -export([start_g/2,start_sp/5,continue/3,gossip_line/2]).
 
 
-start_sp(Neighbour_list,S,W,Flag,Count) ->
+start_sp(Neighbour_list,S,W,Prev_ratio,Count) ->
         receive
-                {populate,Neighbour_list}->
-                        start_sp(Neighbour_list,S,W,Flag,Count)
+                {populate,Nehboulist}->
+                        start_sp(Nehboulist,S,W,Prev_ratio,Count);
+                {S1, W1}->
+                        if
+                                Count /=3 ->
+                                        S2 = S + S1,
+                                        W2 = W + W1,
+                                        X = rand:uniform(length(Neighbour_list)),
+                                        Next_PID = lists:nth(X, Neighbour_list),
+                                        S3 = S2/2,
+                                        W3 = W2/2,
+                
+                                        Next_PID ! {S3,W3},
+                                        Curr_ratio = S2/W2,
+                                        Diff = math:pow(10,-10),
+                                        if
+                                        abs(Curr_ratio - Prev_ratio) < Diff ->
+                                                start_sp(Neighbour_list,S3,W3,Curr_ratio,Count+1);
+                                        true ->
+                                                start_sp(Neighbour_list,S3,W3,Curr_ratio,Count) %0
+                                                
+                                        end;
+                                true ->
+                                        io:format("Ho gaya bhaiya apna toh aur apun ka sum ~p\n",[S]),
+                                        listener ! {done}       
+                        end
+                        
         end.
 
 start_g(Neighbour_list,Count)->

@@ -1,7 +1,7 @@
 -module(nmanager).
 -import(nodeg,[start_Rumour/1]).
 -import(nodesp,[start_sum/1,populate_Neigbours/3]).
--export([fullNetwork/2,line/2,grid2d/2,gspawner_Nodes/2,psspawner_Nodes/4,listener/3,lgspawner_Nodes/2]).
+-export([fullNetwork/2,line/2,grid2d/2,gspawner_Nodes/2,psspawner_Nodes/3,listener/3,lgspawner_Nodes/2]).
 
 listener(Len,_,TimeStart) when Len ==0 ->
    io:format("Done\n"),
@@ -47,11 +47,11 @@ lgspawner_Nodes(NumNodes,PIDList) -> %we might need the Algorithm as well but le
         PID = spawn(nodesp,gossip_line,[[],0]), 
         lgspawner_Nodes(NumNodes-1,[PID|PIDList]). %recursion to spawn nodes = NumNodes.
 % This will spawn the "push sum nodes".
-psspawner_Nodes(0,PIDList,_,_)->
+psspawner_Nodes(0,PIDList,_)->
         PIDList;
-psspawner_Nodes (NumNodes,PIDList,Algorithm,X) -> %we might need the Algorithm as well but lets see how it goes.
-        PID = spawn(nodesp,start_sp,[[  ],X]), 
-        psspawner_Nodes(NumNodes-1,[PID|PIDList], Algorithm,X+1).
+psspawner_Nodes (NumNodes,PIDList,X) -> %we might need the Algorithm as well but lets see how it goes.
+        PID = spawn(nodesp,start_sp,[[],X,1,X,0]), 
+        psspawner_Nodes(NumNodes-1,[PID|PIDList],X+1).
 
 fullNetwork(NumNodes,Algorithm) -> 
     % io:format("~p~n",[Algorithm]),
@@ -67,17 +67,25 @@ fullNetwork(NumNodes,Algorithm) ->
                     Elem ! {populate,lists:delete(Elem,PIDlist)}
                     end,PIDlist),
                     listener ! {Len,PIDlist},
-        % Need to figure out how to populate the Neigbour list in the node module.
-        
         Start_PID = lists:nth(rand:uniform(length(PIDlist)), PIDlist),    
-        % io:format("~w",[Start_PID]),s
-        % io:format("~w",[erlang:is_process_alive(Start_PID)]),
+        % io:format("~w",[Start_PID]),        % io:format("~w",[erlang:is_process_alive(Start_PID)]),
         Start_PID ! {rumour},
         io:format(" ");
         % lists:foreach()
     Algorithm == "push-sum" ->
-        io:format("here goes the code for the push-sum Algorithm in a full Network.\n");
-        % start_sum(Start_PID);
+             PIDlist = psspawner_Nodes(NumNodes,[],1),  
+             Len = length(PIDlist),
+             % io:fwrite("~w~n",[PIDlist]), 
+            % io:format("~p~n",[PIDlist]),
+             lists:foreach(fun(Elem)->
+                Elem ! {populate,lists:delete(Elem,PIDlist)}
+                end,PIDlist),
+                listener ! {Len,PIDlist},
+                S= rand:uniform(length(PIDlist)),
+                Start_PID = lists:nth(S, PIDlist),    
+    % io:format("~w",[Start_PID]),s
+    % io:format("~w",[erlang:is_process_alive(Start_PID)]),
+    Start_PID !{S,1};
     true ->
         io:format("The Algorithm you have mentioned doesnt match our database.\n")
     end.
