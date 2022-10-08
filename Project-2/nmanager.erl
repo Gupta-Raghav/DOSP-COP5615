@@ -103,13 +103,13 @@ line(NumNodes,Algorithm)->
                     if
                         Ind ==1 ->
                             % io:format("pop for ~p\n",[Elem]),
-                            Elem ! {pop,[lists:nth(Ind+1,PIDList)]};
+                            Elem ! {populate,[lists:nth(Ind+1,PIDList)]};
                         Ind == Len ->
                             % io:format("Element ~p~n",[Elem]),
-                            Elem ! {pop,[lists:nth(Ind-1,PIDList)]};
+                            Elem ! {populate,[lists:nth(Ind-1,PIDList)]};
                         true ->
                             % io:format("Element ~p~n",[Elem]),
-                            Elem ! {pop,[lists:nth(Ind+1,PIDList),lists:nth(Ind-1,PIDList)]}
+                            Elem ! {populate,[lists:nth(Ind+1,PIDList),lists:nth(Ind-1,PIDList)]}
                     end
                     end,PIDList),
                     listener ! {Len,PIDList,TimeStart},
@@ -117,7 +117,29 @@ line(NumNodes,Algorithm)->
         StartPID = lists:nth(RS, PIDList),
         StartPID ! {rumour};
     Algorithm == "push-sum" ->
-        io:format("here goes the code for the push-sum Algorithm in a Line Topology.\n");
+        % io:format("here goes the code for the push-sum Algorithm in a Line Topology.\n");
+    PIDList = psspawner_Nodes(NumNodes,[],1),
+    % io:format("PID_list ~p~n\n",[PIDList]),
+    Len = length(PIDList),
+    lists:foreach(fun(Elem)->
+        Ind = string:str(PIDList, [Elem]),
+        % io:format("Element ~p~n",[Ind]),
+                if
+                    Ind ==1 ->
+                        % io:format("pop for ~p\n",[Elem]),
+                        Elem ! {populate,[lists:nth(Ind+1,PIDList)]};
+                    Ind == Len ->
+                        % io:format("Element ~p~n",[Elem]),
+                        Elem ! {populate,[lists:nth(Ind-1,PIDList)]};
+                    true ->
+                        % io:format("Element ~p~n",[Elem]),
+                        Elem ! {populate,[lists:nth(Ind+1,PIDList),lists:nth(Ind-1,PIDList)]}
+                end
+                end,PIDList),
+                listener ! {Len,PIDList,TimeStart},
+    RS = rand:uniform(NumNodes),
+    StartPID = lists:nth(RS, PIDList),
+    StartPID ! {RS,1};
     true ->
         io:format("The Algorithm you have mentioned doesnt match our database.\n")
     end.
