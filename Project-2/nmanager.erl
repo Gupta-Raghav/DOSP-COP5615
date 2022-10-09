@@ -1,7 +1,7 @@
 -module(nmanager).
 -import(nodeg,[start_Rumour/1]).
 -import(nodesp,[start_sum/1,populate_Neigbours/3]).
--export([fullNetwork/2,line/2,grid2d/2,gspawner_Nodes/2,psspawner_Nodes/3,listener/3,lgspawner_Nodes/2]).
+-export([fullNetwork/2,line/2,grid2d/2,gspawner_Nodes/2,psspawner_Nodes/3,listener/3]).
 
 listener(Len,_,TimeStart) when Len ==0 ->
    io:format("Done\n"),
@@ -21,18 +21,7 @@ listener(Len,PIDlist,TimeStart)->
             % io:format("Done sending ~p~n",Node),
             listener(Len-1,PIDlist,TimeStart) 
     end.
-% This will spawn the "Gossip nodes". 
-spawner2d(X,Y,R,PIDlist) ->
-    PID = spawn(nodesp,start_2d,[[],0]),
-    if
-        X>0 ->
-            spawner2d(X-1,Y,R,[PID|PIDlist]);
-        Y>0 ->
-            spawner2d(X,Y-1,R,[PID|PIDlist]);
-        true ->
-            ok
-    end.
-
+% This will spawn the "Gossip nodes".
 
 gspawner_Nodes(0,PIDList)->
     PIDList;
@@ -40,12 +29,6 @@ gspawner_Nodes(NumNodes,PIDList) -> %we might need the Algorithm as well but let
     PID = spawn(nodesp,start_g,[[],0]), 
     gspawner_Nodes(NumNodes-1,[PID|PIDList]). %recursion to spawn nodes = NumNodes.
 
-
-lgspawner_Nodes(NumNodes,PIDList) when NumNodes==0->
-        PIDList;
-lgspawner_Nodes(NumNodes,PIDList) -> %we might need the Algorithm as well but lets see how it goes.
-        PID = spawn(nodesp,gossip_line,[[],0]), 
-        lgspawner_Nodes(NumNodes-1,[PID|PIDList]). %recursion to spawn nodes = NumNodes.
 % This will spawn the "push sum nodes".
 psspawner_Nodes(0,PIDList,_)->
         PIDList;
@@ -94,7 +77,7 @@ line(NumNodes,Algorithm)->
     TimeStart = erlang:monotonic_time()/10000,
     register(listener,spawn(nmanager,listener,[1,[],TimeStart])),
     if Algorithm == "gossip" ->
-        PIDList = lgspawner_Nodes(NumNodes,[]),
+        PIDList = gspawner_Nodes(NumNodes,[]),
         % io:format("PID_list ~p~n\n",[PIDList]),
         Len = length(PIDList),
         lists:foreach(fun(Elem)->
@@ -146,18 +129,102 @@ line(NumNodes,Algorithm)->
 
 grid2d(NumNodes,Algorithm)->
     io:format("Inside the 2d function\n"),
-    Rows = erlang:trunc(math:sqrt(NumNodes)),
-    io:format("Rows ~p~n",Rows),
-    PIDList = spawner2d(Rows,Rows,Rows,[]),
-    Len = 1,
-    lists:foreach(fun(Elem)->
-                    Elem ! {populate,lists:delete(Elem,PIDList)}    
-                    end,PIDList),
-                    listener ! {Len,PIDList},
+    TimeStart = erlang:monotonic_time()/10000,
+    register(listener,spawn(nmanager,listener,[1,[],TimeStart])),
+    io:format("Listener is up\n"),
     if Algorithm == "gossip" ->
-        io:format("here goes the code for the gossip in a 3-D Grid.\n");
+        io:format("here goes the code for the gossip in a 3-D Grid.\n"),
+         Rows = erlang:trunc(math:sqrt(NumNodes)),
+        io:format("Rows ~p~n",[Rows]),
+        Total = Rows * Rows,
+        io:format("Total elements ~p~n", [Total]),
+        PIDList = gspawner_Nodes(Total,[]),
+        io:format("PID_list ~p~n\n",[PIDList]),
+        lists:foreach(fun(Elem)->
+        Ind = string:str(PIDList, [Elem]),
+        Mod = Ind rem Rows,
+        if
+            Ind =< Rows -> %For all the bottom elements
+                if
+                    Mod ==1  ->
+                        Elem ! {populate,[lists:nth(Ind+1,PIDList),lists:nth(Ind+Rows,PIDList)]};
+                    Mod == 0->
+                        Elem ! {populate,[lists:nth(Ind-1,PIDList),lists:nth(Ind+Rows,PIDList)]};
+                    true ->
+                        Elem ! {populate,[lists:nth(Ind+1,PIDList),lists:nth(Ind-1,PIDList),lists:nth(Ind+Rows,PIDList)]}
+                end;
+                Total-Ind < Rows-> %For all top elements
+                if
+                    Mod ==1 ->
+                        Elem ! {populate,[lists:nth(Ind+1,PIDList),lists:nth(Ind-Rows,PIDList)]};
+                    Mod == 0->
+                        Elem ! {populate,[lists:nth(Ind-1,PIDList),lists:nth(Ind-Rows,PIDList)]};
+                    true ->
+                        Elem ! {populate,[lists:nth(Ind+1,PIDList),lists:nth(Ind-1,PIDList),lists:nth(Ind-Rows,PIDList)]}
+                end;
+            true -> %For all the middle elements
+                if
+                    Mod ==1  ->
+                        Elem ! {populate,[lists:nth(Ind+1,PIDList),lists:nth(Ind+Rows,PIDList),lists:nth(Ind-Rows,PIDList)]};
+                    Mod == 0->
+                        Elem ! {populate,[lists:nth(Ind-1,PIDList),lists:nth(Ind+Rows,PIDList),lists:nth(Ind-Rows,PIDList)]};
+                    true ->
+                        Elem ! {populate,[lists:nth(Ind+1,PIDList),lists:nth(Ind-1,PIDList),lists:nth(Ind+Rows,PIDList),lists:nth(Ind-Rows,PIDList)]}
+                end
+        end
+        end,PIDList),
+        Len = length(PIDList),
+        listener ! {Len,PIDList},
+        Start_PID = lists:nth(rand:uniform(length(PIDList)), PIDList),    
+        % io:format("~w",[Start_PID]), 
+        % io:format("~w",[erlang:is_process_alive(Start_PID)]),
+        Start_PID ! {rumour};
     Algorithm == "push-sum" ->
-        io:format("here goes the code for the push-sum Algorithm in a 3-D Grid.\n");
+        io:format("here goes the code for the push-sum Algorithm in a 3-D Grid.\n"),
+        Rows = erlang:trunc(math:sqrt(NumNodes)),
+       io:format("Rows ~p~n",[Rows]),
+       Total = Rows * Rows,
+       io:format("Total elements ~p~n", [Total]),
+       PIDList = psspawner_Nodes(NumNodes,[],1),
+       io:format("PID_list ~p~n\n",[PIDList]),
+       lists:foreach(fun(Elem)->
+       Ind = string:str(PIDList, [Elem]),
+       Mod = Ind rem Rows,
+       if
+           Ind =< Rows -> %For all the bottom elements
+               if
+                   Mod ==1  ->
+                       Elem ! {populate,[lists:nth(Ind+1,PIDList),lists:nth(Ind+Rows,PIDList)]};
+                   Mod == 0->
+                       Elem ! {populate,[lists:nth(Ind-1,PIDList),lists:nth(Ind+Rows,PIDList)]};
+                   true ->
+                       Elem ! {populate,[lists:nth(Ind+1,PIDList),lists:nth(Ind-1,PIDList),lists:nth(Ind+Rows,PIDList)]}
+               end;
+               Total-Ind < Rows-> %For all top elements
+               if
+                   Mod ==1 ->
+                       Elem ! {populate,[lists:nth(Ind+1,PIDList),lists:nth(Ind-Rows,PIDList)]};
+                   Mod == 0->
+                       Elem ! {populate,[lists:nth(Ind-1,PIDList),lists:nth(Ind-Rows,PIDList)]};
+                   true ->
+                       Elem ! {populate,[lists:nth(Ind+1,PIDList),lists:nth(Ind-1,PIDList),lists:nth(Ind-Rows,PIDList)]}
+               end;
+           true -> %For all the middle elements
+               if
+                   Mod ==1  ->
+                       Elem ! {populate,[lists:nth(Ind+1,PIDList),lists:nth(Ind+Rows,PIDList),lists:nth(Ind-Rows,PIDList)]};
+                   Mod == 0->
+                       Elem ! {populate,[lists:nth(Ind-1,PIDList),lists:nth(Ind+Rows,PIDList),lists:nth(Ind-Rows,PIDList)]};
+                   true ->
+                       Elem ! {populate,[lists:nth(Ind+1,PIDList),lists:nth(Ind-1,PIDList),lists:nth(Ind+Rows,PIDList),lists:nth(Ind-Rows,PIDList)]}
+               end
+       end
+       end,PIDList),
+       NPIDList = lists:sublist(PIDList,Total),
+       listener ! {Total,NPIDList},   
+        RS = rand:uniform(length(NPIDList)),
+        StartPID = lists:nth(RS, NPIDList),
+        StartPID ! {RS,1};
     true ->
         io:format("The Algorithm you have mentioned doesnt match our database.\n")
     end.

@@ -1,19 +1,20 @@
 -module(nodesp).
 
--export([start_g/2,start_sp/5,continue/3,gossip_line/2]).
+-export([start_g/2,start_sp/5,continue/3]).
 
 
-start_sp(Neighbour_list,S,W,Prev_ratio,Count) ->
+start_sp(Nr_list,S,W,Prev_ratio,Count) ->
         receive
                 {populate,Nehboulist}->
+                      
                         start_sp(Nehboulist,S,W,Prev_ratio,Count);
                 {S1, W1}->
                         if
                                 Count /=3 ->
                                         S2 = S + S1,
                                         W2 = W + W1,
-                                        X = rand:uniform(length(Neighbour_list)),
-                                        Next_PID = lists:nth(X, Neighbour_list),
+                                        X = rand:uniform(length(Nr_list)),
+                                        Next_PID = lists:nth(X, Nr_list),
                                         S3 = S2/2,
                                         W3 = W2/2,
                 
@@ -22,18 +23,19 @@ start_sp(Neighbour_list,S,W,Prev_ratio,Count) ->
                                         Diff = math:pow(10,-10),
                                         if
                                         abs(Curr_ratio - Prev_ratio) < Diff ->
-                                                start_sp(Neighbour_list,S3,W3,Curr_ratio,Count+1);
+                                                start_sp(Nr_list,S3,W3,Curr_ratio,Count+1);
                                         true ->
-                                                start_sp(Neighbour_list,S3,W3,Curr_ratio,Count) %0
+                                                start_sp(Nr_list,S3,W3,Curr_ratio,0) 
                                                 
                                         end;
                                 true ->
-                                        io:format("Ho gaya bhaiya apna toh aur apun ka sum ~p\n",[S]),
+                                        io:format("Average is ~p\n",[S]),
                                         listener ! {done}       
                         end
                         
         end.
 
+% gossip part.
 start_g(Neighbour_list,Count)->
         receive
                 {populate,Nist}->
@@ -44,7 +46,7 @@ start_g(Neighbour_list,Count)->
                 kill ->
                         exit("kill")
         end.
-        
+
 send_rumour(Nlist,Count)->
         % io:format("~p\t~p~n",[self(),Count]),
         X = rand:uniform(length(Nlist)),
@@ -65,46 +67,3 @@ continue(rumour,Nbourlist,Count)->
                 send_rumour(Nbourlist,Count)
         end.
         
-
-
-gossip_line(Neblist,Count) ->
-        % io:format("Line Neighbours ~p~n",[Neblist]),
-        % io:format("here\n"),
-        receive
-                {neg}->
-                        io:format("N List ~p~n", Neblist);
-                {pop,Neist}->
-                        % io:format("here~n"),
-                        gossip_line(Neist,Count); 
-                {rumour} ->
-                        continue(rumour,Neblist,Count);
-                kill ->
-                                exit("kill")
-                end.
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-% populate_Neighbours()->
-%         populate.    
-
-
-% start_Rumour(PID)->
-%         rumour.
-% May be we will have to create a funciton where the first node value will be different for this weight will be 1.
-% And all other nodes can have the value 1 for the weight.
-% This can be a neat wau to have an actor inside the PIDList.
