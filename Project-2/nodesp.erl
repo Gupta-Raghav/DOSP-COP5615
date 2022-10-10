@@ -6,7 +6,7 @@
 start_sp(Nr_list,S,W,Prev_ratio,Count) ->
         receive
                 {populate,Nehboulist}->
-                      
+                        io:format("~p,~p\n",[self(),Nehboulist]),
                         start_sp(Nehboulist,S,W,Prev_ratio,Count);
                 {S1, W1}->
                         if
@@ -31,7 +31,9 @@ start_sp(Nr_list,S,W,Prev_ratio,Count) ->
                                 true ->
                                         io:format("Average is ~p\n",[S]),
                                         listener ! {done}       
-                        end
+                        end;
+                kill ->
+                        exit("kill")
                         
         end.
 
@@ -39,10 +41,10 @@ start_sp(Nr_list,S,W,Prev_ratio,Count) ->
 start_g(Neighbour_list,Count)->
         receive
                 {populate,Nist}->
+                        io:format("~p,~p\n",[self(),Nist]),
                         start_g(Nist,Count);
                 {rumour} ->
                         continue(rumour,Neighbour_list,Count); 
-                        
                 kill ->
                         exit("kill")
         end.

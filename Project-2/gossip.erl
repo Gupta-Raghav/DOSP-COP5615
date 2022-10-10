@@ -3,17 +3,19 @@
 -export([main/3]).
 
 main(NumNodes, Topology, Algo) ->
+    % NumNodes = erlang:list_to_integer(_NumNodes),
    
     Ltopology = string:to_lower(Topology),
+    LAlgo = string:to_lower(Algo),
     % io:format("~p~n",[Ltopology]),
     if Ltopology == "fullnetwork" ->
-        fullNetwork(NumNodes,Algo);
+        fullNetwork(NumNodes,LAlgo);
     Ltopology == "line" ->
-        line(NumNodes,Algo);
+        line(NumNodes,LAlgo);
     Ltopology == "2dgrid" ->
-        grid2d(NumNodes,Algo);
+        grid2d(NumNodes,LAlgo);
     Ltopology == "imperfect3d" ->
-        imperfect3d(NumNodes,Algo);
+        imperfect3d(NumNodes,LAlgo);
     true ->
         io:format("[ERROR]: UNDEFINED TOPOLOGY, please try again\n")
     end.
