@@ -24,15 +24,14 @@ listener() ->
 
 
 start(NumNodes,NumRequests)->
-    M = 5,
+    M = 3,
     io:format("Nodes to be Checked: ~p~n",[NumNodes]),
     io:format("Requests to be checked: ~p~n",[NumRequests]),
     io:format("Finger tuple contains: ~p~n tuples",[M]),
     register(listener, spawn(project3, listener, [])),
-    FT = maps:new(),
-    create_chord(NumNodes,4,[],NumRequests,[], FT).
+    create_chord(NumNodes,M,[],NumRequests,[]).
 
-create_chord(0,M,NodeList,_,_, FT)->
+create_chord(0,M,NodeList,_,_)->
     % io:format("Id list~p~n",[IdList]),
     NList = lists:keysort(1,NodeList),
     io:format("Node list sorted~p~n",[NList]),
@@ -47,21 +46,24 @@ create_chord(0,M,NodeList,_,_, FT)->
                             Node ! {updateSP, lists:nth(Ind + 1, NList),lists:nth(Ind-1, NList)}
                     end
                     end,NList),
-    assign_keys(M,NList);     
+    lists:foreach(fun({_,Node})->
+                Node ! {createFt,NList}    
+                end,NList);
+    % assign_keys(M,NList);     
     % assign keys.
     % Ft creation.
     % NodeList;
 
-create_chord(N,M,NodeList,Nreq,IdList,FT)->
+create_chord(N,M,NodeList,Nreq,IdList)->
     Id= rand:uniform(round(math:pow(2,M))),
     Flag = lists:member(Id,IdList),
     if
         Flag ->
-            create_chord(N,M,NodeList,Nreq,IdList,FT);
+            create_chord(N,M,NodeList,Nreq,IdList);
         true -> 
             Node = spawn(node, start, [Id,M,NodeList,N,[],0,0]),
             NodeId = {Id,Node},
-            create_chord(N-1,M,[NodeId|NodeList],Nreq,[Id|IdList],FT)
+            create_chord(N-1,M,[NodeId|NodeList],Nreq,[Id|IdList])
     end.
     
 
