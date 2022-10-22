@@ -10,22 +10,28 @@ lookup(List)->
 
 listener(N,List) when N ==0->
     % Start lookup after this
-    % io:format("starting lookup after this\n"),   
-    % lookup(List),
+    io:format("starting lookup after this\n"),   
+    lookup(List),
+    %io:format("FT successfully filled"),
     receive
         {found,FNode,Key,H}->
             io:format("Hop on Fnode ~p with key~p : ~p~n",[FNode,Key,H])
     end,
-    listener(N,List);
+    listener(0,List);
 
 
 listener(N,NodeList) ->
     receive
         {Num,List}->
-            listener(Num,List);
-        {fingertablecreated} ->
-            % io:format("iterator\n"),
-            listener(N-1,NodeList)
+            io:format("received nlist~p~n",[List]),
+            lists:foreach(fun({_,Node})->
+                Node ! {createFt,List},  
+                receive
+                    {fingertablecreated} ->
+                        ok
+                end
+                end,List),
+            listener(0,List)
     end.
 
 
@@ -52,12 +58,9 @@ create_chord(0,_,NodeList,_,_)->
                             Node ! {updateSP, lists:nth(Ind + 1, NList),lists:nth(Ind-1, NList)}
                     end
                     end,NList),
-    % io:format("Done creting the chord~n"),
+    %io:format("Done creting the chord~n"),
     N = length(NList),
-    listener ! {N,NList},
-    lists:foreach(fun({_,Node})->
-                Node ! {createFt,NList}    
-                end,NList);
+    listener ! {N,NList};
     % assign_keys(M,NList);     
     % assign keys.
     % Ft creation.
