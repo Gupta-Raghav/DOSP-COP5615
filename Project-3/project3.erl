@@ -2,37 +2,30 @@
 
 -export([start/2,listener/2]).
 
-% iterator(0,Ms)->
-%     Ms;
-
-% iterator(N,M)->
-%     iterator(N bsr 1,M+1).
-
-
-% assign_keys(M,List) ->
-%         lists:foreach(fun({Id,Node})->
-%             Node ! {keys, lists:seq()}
-%             end,List),
-%         g.
-    
 lookup(List)->
-    {_,Node} = lists:nth(rand:uniform(length(List)), List),
+    {_,Node} = lists:nth(1, List),
     {Key,_} = lists:nth(rand:uniform(length(List)), List),
+    % io:format("Asking node ~p with key~p ~n",[Node,Key]),
     Node ! {lookup,Key}.
 
-listener(0,List)->
+listener(N,List) when N ==0->
     % Start lookup after this
-    io:format("starting lookup after this\n"),    
-    lookup(List),
-    listener(length(List),List),
-    ok;
+    % io:format("starting lookup after this\n"),   
+    % lookup(List),
+    receive
+        {found,FNode,Key,H}->
+            io:format("Hop on Fnode ~p with key~p : ~p~n",[FNode,Key,H])
+    end,
+    listener(N,List);
+
 
 listener(N,NodeList) ->
     receive
+        {Num,List}->
+            listener(Num,List);
         {fingertablecreated} ->
-            listener(N-1,NodeList);
-        {Hops}->
-            ok
+            % io:format("iterator\n"),
+            listener(N-1,NodeList)
     end.
 
 
@@ -44,10 +37,10 @@ start(NumNodes,NumRequests)->
     register(listener, spawn(project3, listener, [NumNodes,[]])),
     create_chord(NumNodes,M,[],NumRequests,[]).
 
-create_chord(0,M,NodeList,_,_)->
+create_chord(0,_,NodeList,_,_)->
     % io:format("Id list~p~n",[IdList]),
     NList = lists:keysort(1,NodeList),
-    % io:format("Node list sorted~p~n",[NList]),
+    
     lists:foreach(fun({Id,Node})->
                     Ind = string:str(NList, [{Id,Node}]),
                     if
@@ -59,6 +52,7 @@ create_chord(0,M,NodeList,_,_)->
                             Node ! {updateSP, lists:nth(Ind + 1, NList),lists:nth(Ind-1, NList)}
                     end
                     end,NList),
+    % io:format("Done creting the chord~n"),
     N = length(NList),
     listener ! {N,NList},
     lists:foreach(fun({_,Node})->
