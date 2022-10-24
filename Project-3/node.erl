@@ -13,13 +13,13 @@ start(ID,M,Existing_Nodes,No,Ft,Sc,Pr)->
             % io:format("Id ~p Key ~p~n",[ID,K]),
             start(ID,M,Existing_Nodes,No,Ft,Sc,Pr);
         {continuesearch, K, Hop} ->
-            % io:format("IN continue with hops : ~p~n",[Hop]),
+            %io:format("IN continue with hops : ~p~n",[Hop]),
             search(K,ID,Sc,Ft,Hop,round(math:pow(2,M))),
             start(ID,M,Existing_Nodes,No,Ft,Sc,Pr);
         {createFt,NodeList}->
             % io:format("Inside createft\n"),
             FingerTable = ft_node(1,M,ID,NodeList,No,Ft,Sc,Pr),
-            io:format("ID ~p ft done: ~p~n",[ID,FingerTable]),
+            % io:format("ID ~p ft done: ~p~n",[ID,FingerTable]),
             listener ! {fingertablecreated},
             start(ID,M,Existing_Nodes,No,FingerTable,Sc,Pr);
         {updateSP,S,P} ->
@@ -29,43 +29,57 @@ start(ID,M,Existing_Nodes,No,Ft,Sc,Pr)->
             contFT(Sk, PID, Sc, ID, M),
             start(ID,M,Existing_Nodes,No,Ft,Sc,Pr)
     end.
-nearest(ID,Key,Fingert,It,PID,Space)->
+
+nearest(ID,Skey,Ft,Space, 1)->
+    io:format("could not find node"),
+    exit(normal);
+nearest(ID,Skey,Ft,Space, It)->
+    {_, {NthElem, _}} = lists:nth(It, Ft),
+    {_, {N1thElem, _}} = lists:nth(It-1, Ft),
+    N = lists:nth(It, Ft),
+    %if NthElem > N1thElem ->
+
+     Length = abs(NthElem - N1thElem),
+    L = lists:seq((1+N1thElem), (Length+N1thElem)),
+    InBetween = lists:map(fun(X) -> X rem Space end, L),
+    %io:format("~p  ~p  ~p~n", [NthElem,N1thElem,InBetween]),
+    KeyFound = lists:member(Skey, InBetween),
     if
-        It ==0->
-            {_,Succ} = lists:last(Fingert),
-            Succ;
-        true->
-            {_, Finger={LId, _LPid}} = lists:nth(It,Fingert),
-            if
-                Key < ID->
-                    io:format("here\n"),
-                    {_,Succ} = lists:last(Fingert),
-                    Finger;
-                ID <LId, LId<Key ->
-                    Finger;
-                true ->
-                    nearest(ID,Key,Fingert,It-1,PID,Space)  
-            end
+        KeyFound ->
+            N;
+        true ->
+            nearest(ID,Skey,Ft,Space, It-1)
     end.
 
 
 search(Skey,Id,Scc={SID,_},Ft,Hops,Space)->
-    io:format("Inside Id ~p, Finger Table ~p Searching ~p~n",[Id,Ft,Skey]),
+    %io:format("Inside Id ~p, Finger Table ~p Searching ~p~n",[Id,Ft,Skey]),
+    {_, {LastID, LastPID}} = lists:last(Ft),
+    Length = Space - abs(Id - LastID),
+    L = lists:seq((1+LastID), (Length+LastID)),
+    %io:format("~p    ~p~n", [LastID,L]),
+    InBetween = lists:map(fun(X) -> X rem Space end, L),
+    %io:format("~p    ~p~n", [LastID,InBetween]),
+    Unreachable = lists:member(Skey, InBetween),
+
     if
-        Id =<Skey ->
-            lookupListener ! {found,Id,{Id, self()},Skey,Hops+1};
-        Id > SID, Skey =< Id ->
-            lookupListener ! {found,Id,Scc,Skey,Hops+1};
-        Id > SID, Skey > Id ->
-            lookupListener ! {found,Id,Scc,Skey,Hops+1};
-        Skey > Id, Skey=<SID ->
-            lookuupListener ! {found,Id,Scc,Skey,Hops+1};
-        % Skey > Id, Skey > SID ->
-        %     lookupListener ! {found,Id,Scc,Skey,Hops+1};
+        %%checking successors
+        Id == (Space - 1) ->
+            if Skey == 0 ->
+                lookupListener ! {found,Id,Scc,Skey,Hops+2};
+            true ->
+                ok
+            end;
+        Skey > Id, Skey =< SID ->
+            lookupListener ! {found,Id,Scc,Skey,Hops+2};
+        Unreachable ->
+            LastPID ! {continuesearch, Skey, Hops+2};
+
         true ->
-            {_,SUCCPID} =  nearest(Id,Skey,Ft,length(Ft),self(),Space),
-            % io:format("Succesor PID~p~n",[SUCCPID]),
-            SUCCPID ! {continuesearch, Skey, Hops+1}
+            %io:format("~p~n",[length(Ft)]),
+            NextHop = nearest(Id, Skey, Ft, Space, length(Ft)),
+            lookupListener ! {found,Id,NextHop,Skey,Hops+2}
+
     end.
 
 
