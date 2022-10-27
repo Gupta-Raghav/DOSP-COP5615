@@ -25,7 +25,7 @@ hopreceiver(List, Key, Hop,Div)->
     NodeID ! {lookup,Key},
     receive
         {found,Id,Scc,Skey,Hops}->
-            
+            io:format("~p~n",[length(List)]),
             NewHops = Hop + Hops,
             hopreceiver(lists:delete(Node, List), Key, NewHops,Div)
     end.
@@ -68,7 +68,7 @@ listener(M,N,NodeList,NumRequests,Div) ->
 
 start(NumNodes,NumRequests)->
 
-    M = 10,
+    M = 30,
     io:format("Nodes to be Checked: ~p~n",[NumNodes]),
     io:format("Requests to be checked: ~p~n",[NumRequests]),
     io:format("Finger tuple contains: ~p~n tuples",[M]),
