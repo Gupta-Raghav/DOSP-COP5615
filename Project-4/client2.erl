@@ -19,14 +19,17 @@ bear(N,Add)->
     end.
 
 start(Add)->
-    Username = "Aliya.abdullah",
-    Pass = "DOBRAKIJAI",
-    % Username = "gupta.raghav",
-    % Pass = "DOSPKiJAI",
+    Username =io:get_line("Chosoe a Username: "),
+    %  "gupta.raghav",
+    Pass = io:get_line("Chosoe a Strong password: "),
+    % Username = "Aliya.abdullah",
+    % Pass = "DOBRAKIJAI",
+    % % Username = "gupta.raghav",
+    % % Pass = "DOSPKiJAI",
     {server, Add} ! {self(),Username,Pass},
     receive
         {failed,Msg} ->
-            io:format("_______________Auth Failed.__________________~n [Server]: ~p~n",[Msg]);
+            io:format("_______________Auth Failed._____________________________~n [Server]: ~p~n",[Msg]);
        {successful,Msg} ->
             io:format("_______________Auth successfully done.__________________~n [Server]: ~p~n",[Msg])
             % start(Add)   
