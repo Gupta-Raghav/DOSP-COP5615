@@ -7,32 +7,108 @@ hash(Rstring)->
     Ahstring = string:to_lower(HashStr),
     Ahstring.
 
-
-listener(UMap,Ulist,Plist)->
+signup(Client,Uname, Pass,UMap,PMap ) ->
     
-    receive
-        {Client,Uname, Pass} ->
-            io:format("~p________Client is trying to connect_______________~p~n",[Client,Uname]),
-           
-            Hashpass = hash(Pass),
+    Hashpass = hash(Pass),
+    HashUname = hash(Uname),
+    Flag = maps:is_key(HashUname,UMap),
+    if
+        Flag ->
+            Client ! {failed,"Username Already taken.\n try different username.\n"},
+            UMap;
+        true ->
+            Client ! {successful,"Welcome"},
+            UNmap = maps:put(HashUname,Hashpass,UMap), 
+            PNMap = maps:put(Uname, Client, PMap),
+            {UNmap,PNMap}
+    end.
+signin(Client,Uname, Pass,UMap,PMap)->
+    Hashpass = hash(Pass),
             HashUname = hash(Uname),
-            Flag = maps:is_key(HashUname,UMap),
-            % io:format("~p HashUname ~n",[HashUname]),
+            Flag = maps:is_key(HashUname,UMap), %If the hashed username matches.
             if
                 Flag ->
-                    Client ! {failed,"Username Already taken.\n try different username.\n"},
-                    % io:format("~p Map ~n",[UMap]),
-                    listener(UMap,Ulist,Plist);
+                    Cpass = maps:get(HashUname,UMap),
+                    % only if the password matches
+                    if
+                        Cpass == Hashpass ->
+                        Client ! {successful,"Successfully logged-in."},
+                        PNMap = maps:put(Uname, Client, PMap),
+                        PNMap;
+                        true ->
+                        Client ! {failed,"Login-failed, Password that you entered is wrong."}
+                    end;
                 true ->
-                    Client ! {successful,"Welcome"},
-                    UNmap = maps:put(HashUname,Hashpass,UMap), 
-                    % io:format("~p Map ~n",[UNmap]),
-                    listener(UNmap,Ulist,Plist)
-            end
+                    Client ! {failed,"Username that you entered does not exist. Create an account with new keyword."}
+            end.
+signout(Client, Uname, PMap) ->
+    Flag = maps:is_key(Uname, PMap),
+    if 
+        Flag->
+            NPMap = maps:remove(Uname, PMap),
+            Client ! {successful,"Successfully logged-out."},
+            NPMap;
+        true->
+            Client ! {failed,"Username that you entered does not exist"}
+    end.
+listener(UMap, PMap)->
+    receive
+        {Client,Uname, Pass,new} ->
+            io:format("~p________Client is trying to connect_______________~p~n",[Client,Uname]),
+            {UNmap, PNMap}= signup(Client,Uname, Pass,UMap,PMap),
+            listener(UNmap, PNMap);
+        {Client,Uname, Pass,signIn} ->
+            io:format("~p________Client is trying to connect_______________~p~n",[Client,Uname]),
+            PNMap = signin(Client,Uname, Pass,UMap,PMap),
+            io:format("Clients online:  ~p~n",[PNMap]),
+            listener(UMap, PNMap);
+        {Client, Uname, signOut} ->
+            io:format("~p____Client signing out_____~p~n",[Client, Uname]),
+            PNMap = signout(Client, Uname, PMap),
+            io:format("Clients online:  ~p~n",[PNMap]),
+            listener(UMap,PNMap)
     end.
 
 start()->
     Map = maps:new(),
-    register(server,spawn(server,listener,[Map,[],[]])),
-    listener(Map,[],[]).
+    PMap = maps:new(),
+    register(server,spawn(server,listener,[Map, PMap])),
+    listener(Map, PMap).
 
+
+
+
+
+
+
+
+
+
+
+% Funcitons:
+% inside start
+    % receive 
+    % 1.) "new" -> call to signup. 
+    % 2.) 'signin' -> call to signin.
+    % 3.) "tweet" -> call to method tweet.
+    % 4.) "subscribe" -> call to subscribe.
+    % 5.) "retweet" -> in one way or the other call the tweet funciton itself.
+    %      6.) timeline -> shows the timeline of the user in chronological order.    
+    % 7.) querries
+    %   i.) hashtag
+    %   ii.) mention
+    %   iii.) tweet  
+
+
+% we will accept PID(Self of client in every function) for message passing. 
+% Data structures:
+% Map of users (Key -> username, value:{password}).
+% tweet of all users (Key -> Tweet_ID, value:{tweet}) => tweet itself will be some data structure. -> funciton for processing hashtags, mentions once done
+% send the tweet to the users(Broadcast).
+% Single tweet data structure : list of (Username, text, timestamp).
+% Hashtag : map of hashtag (key-> #_{name} , value: [Tweet Id](list of tweet IDs))
+% Mentions : map of mentions (key -> @_{username}, value: [tweet id](list of tweet IDs)).
+% Followers : map of followers (key -> @_{username}, value: [@_followers](list of followers username)).
+% Following : map of following (key -> @_{username}, value: [{@_followers,number of tweets}](list of followers username)).
+% Followers and following get's updated every time a user1 subscribes to user2.
+% 
