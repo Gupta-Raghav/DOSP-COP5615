@@ -39,7 +39,7 @@ Keyword = string:trim(io:get_line("Choose the action you want to perform: ")),
         receive 
             {failed,Msg} ->
                 io:format("_______________Failed._____________________________~n [Server]: ~p~n",[Msg]),
-                start(Add);
+                listener(Add,Username,Pass);
             {successful,Msg} ->
                 io:format("_______________successfull.__________________~n [Server]: ~p~n",[Msg]),
                 listener(Add,Username,Pass)

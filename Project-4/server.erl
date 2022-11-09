@@ -53,7 +53,7 @@ signout(Client, Uname, PMap) ->
             Client ! {failed,"Username that you entered does not exist"}
     end.
 
-tweet(Client, Uname, Tweet, TMap, HTMap, MMap, FollowersMap) ->
+tweet(Client, Uname, Tweet, TMap, HTMap, MMap, FollowersMap, UMap) ->
     Keys = maps:keys(TMap),
     if 
         length(Keys) == 0 ->
@@ -61,19 +61,25 @@ tweet(Client, Uname, Tweet, TMap, HTMap, MMap, FollowersMap) ->
         true ->
             TweetID = lists:max(Keys) + 1
     end,
+    
     NewHTMap = find_hashtags(Tweet, TweetID, HTMap),
-    NewTMap = maps:put(TweetID, {Uname, {Tweet, calendar:now_to_datetime(erlang:timestamp())}}, TMap),
+    NewMMap = find_mentions(Tweet, TweetID, MMap, UMap, Client),
+    NewTMap = maps:put(TweetID, {Uname, {Tweet, calendar:now_to_datetime(erlang:timestamp())}}, TMap), 
     io:format("Tweets:   ~p~n", [NewTMap]),
+    io:format("HTMap:   ~p~n", [NewHTMap]),
+    io:format("MMap:   ~p~n", [NewMMap]),
+    %% todo: broadcast function
     Client ! {successful, "Successfully tweeted"},
-    {NewTMap, NewHTMap}.
+    {NewTMap, NewHTMap, NewMMap}.
 
 
 
 find_hashtags("", TweetID, HTMap) ->
-    io:format("HTMap:   ~p~n", [HTMap]),
+    %io:format("HTMap:   ~p~n", [HTMap]),
     HTMap;
 find_hashtags(Tweet, TweetID, HTMap) ->
     NewTweet = string:find(Tweet, "#"),
+    %io:format("NewTweet:   ~p~n ", [NewTweet]),
     if 
         NewTweet == nomatch ->
             HTMap;
@@ -90,6 +96,39 @@ find_hashtags(Tweet, TweetID, HTMap) ->
             end,
             RemoveHT = re:replace(NewTweet, "#", "", [{return,list}]),
             find_hashtags(RemoveHT, TweetID, NewHTMmap)
+    end.
+
+find_mentions("", TweetID, NewMMap, UMap, Client) ->
+    NewMMap;
+find_mentions(Tweet, TweetID, MMap, UMap, Client) ->
+    NewTweet = string:find(Tweet, "@"),
+    %io:format("NewTweet:   ~p~n ", [NewTweet]),
+    if 
+        NewTweet == nomatch ->
+            MMap;
+        true ->
+            Words = string:lexemes(NewTweet, " "),
+            Mention = lists:nth(1, Words),
+            DoesUserExists = maps:is_key(hash(re:replace(Mention, "@", "", [{return,list}])), UMap),
+            if
+                DoesUserExists ->
+                    %% Should send message to user that they were mentioned?
+                    Bool = maps:is_key(Mention, MMap),
+                    if
+                        Bool ->
+                            ExistingTweets = maps:get(Mention, MMap),
+                            NewMMap = maps:update(Mention, lists:append(ExistingTweets, [TweetID]), MMap);
+                        true ->
+                            NewMMap = maps:put(Mention, [TweetID], MMap)
+                    end,
+                    RemoveM = re:replace(NewTweet, "@", "", [{return,list}]),
+                    find_mentions(RemoveM, TweetID, NewMMap, UMap, Client);
+
+                true ->
+                    %% Tweet is still stored. Only the mention is not processed.
+                    Client ! {failed, "The user that you are trying to mention does not exist"},
+                    MMap
+            end      
     end.
 
 
@@ -119,8 +158,8 @@ listener(UMap, PMap, TMap, HTMap, MMap, FollowersMap, FollowingMap)->
 
         %% 8/11/2022 Tweet Functionality
         {Client, Uname, Tweet, tweet}->
-            {NewTMap, NewHTMap} = tweet(Client, Uname, Tweet, TMap, HTMap, MMap, FollowersMap),
-            listener(UMap, PMap, NewTMap, NewHTMap, MMap, FollowersMap, FollowingMap)    
+            {NewTMap, NewHTMap, NewMMap} = tweet(Client, Uname, Tweet, TMap, HTMap, MMap, FollowersMap, UMap),
+            listener(UMap, PMap, NewTMap, NewHTMap, NewMMap, FollowersMap, FollowingMap)    
 
     end.
 
@@ -132,8 +171,17 @@ start()->
     MMap = maps:new(),
     FollowersMap = maps:new(),
     FollowingMap = maps:new(),
-    register(server,spawn(server,listener,[Map, PMap, TMap, HTMap, MMap, FollowersMap, FollowingMap])),
-    listener(Map, PMap, TMap, HTMap, MMap, FollowersMap, FollowingMap).
+    UMap = map_populator(Map, ["raghav", "aliya", "prakhar", "dobra"]),
+    io:format("done updating map ~n"),
+    register(server,spawn(server,listener,[UMap, PMap, TMap, HTMap, MMap, FollowersMap, FollowingMap])),
+    listener(UMap, PMap, TMap, HTMap, MMap, FollowersMap, FollowingMap).
+
+map_populator(Map, []) ->
+    Map;
+map_populator(Map, List) ->
+    U = lists:last(List),
+    NMap = maps:put(hash(U), hash(U), Map),
+    map_populator(NMap, lists:droplast(List)).
 
 
 
