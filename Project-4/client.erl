@@ -1,5 +1,5 @@
 -module(client).
--compile(export_all).
+-compile([export_all, nowarn_ignored, nowarn_unused_vars]).
 
 
 % spawner(0,List,_)->
@@ -26,6 +26,12 @@ Keyword = string:trim(io:get_line("Choose the action you want to perform: ")),
             Keyword == "signout" ->
                     {server, Add} ! {self(),Username,signOut},
                     exit(normal);
+
+            %% 8/11/2022 Tweet Functionality
+
+            Keyword == "tweet" ->
+                Tweet = string:trim(io:get_line("Enter your tweet: ")),
+                {server, Add} ! {self(), Username, Tweet, tweet};
             true ->
                 io:format("check the keyword you entered\n"),
                 listener(Add,Username,Pass)

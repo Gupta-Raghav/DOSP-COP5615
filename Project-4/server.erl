@@ -1,5 +1,6 @@
 -module(server).
--compile(export_all).
+-compile([export_all, nowarn_ignored, nowarn_unused_vars]).
+
 
 hash(Rstring)->
     <<Hashed:256>> = crypto:hash(sha256, Rstring),
@@ -51,29 +52,88 @@ signout(Client, Uname, PMap) ->
         true->
             Client ! {failed,"Username that you entered does not exist"}
     end.
-listener(UMap, PMap)->
+
+tweet(Client, Uname, Tweet, TMap, HTMap, MMap, FollowersMap) ->
+    Keys = maps:keys(TMap),
+    if 
+        length(Keys) == 0 ->
+            TweetID = 1;
+        true ->
+            TweetID = lists:max(Keys) + 1
+    end,
+    NewHTMap = find_hashtags(Tweet, TweetID, HTMap),
+    NewTMap = maps:put(TweetID, {Uname, {Tweet, calendar:now_to_datetime(erlang:timestamp())}}, TMap),
+    io:format("Tweets:   ~p~n", [NewTMap]),
+    Client ! {successful, "Successfully tweeted"},
+    {NewTMap, NewHTMap}.
+
+
+
+find_hashtags("", TweetID, HTMap) ->
+    io:format("HTMap:   ~p~n", [HTMap]),
+    HTMap;
+find_hashtags(Tweet, TweetID, HTMap) ->
+    NewTweet = string:find(Tweet, "#"),
+    if 
+        NewTweet == nomatch ->
+            HTMap;
+        true ->
+            Words = string:lexemes(NewTweet, " "),
+            Hashtag = lists:nth(1, Words),
+            Bool = maps:is_key(Hashtag, HTMap),
+            if
+                Bool ->
+                    ExistingTweets = maps:get(Hashtag, HTMap),
+                    NewHTMmap = maps:update(Hashtag, lists:append(ExistingTweets, [TweetID]), HTMap);
+                true ->
+                    NewHTMmap = maps:put(Hashtag, [TweetID], HTMap)
+            end,
+            RemoveHT = re:replace(NewTweet, "#", "", [{return,list}]),
+            find_hashtags(RemoveHT, TweetID, NewHTMmap)
+    end.
+
+
+
+
+%UMap: list of all users
+%PMap: list of active users
+%TMap: Map of all tweets
+%HTMap: hashtag map
+%MMap: mentions map
+listener(UMap, PMap, TMap, HTMap, MMap, FollowersMap, FollowingMap)->
     receive
         {Client,Uname, Pass,new} ->
             io:format("~p________Client is trying to connect_______________~p~n",[Client,Uname]),
             {UNmap, PNMap}= signup(Client,Uname, Pass,UMap,PMap),
-            listener(UNmap, PNMap);
+            listener(UNmap, PNMap, TMap, HTMap, MMap, FollowersMap, FollowingMap);
         {Client,Uname, Pass,signIn} ->
             io:format("~p________Client is trying to connect_______________~p~n",[Client,Uname]),
             PNMap = signin(Client,Uname, Pass,UMap,PMap),
             io:format("Clients online:  ~p~n",[PNMap]),
-            listener(UMap, PNMap);
+            listener(UMap, PNMap, TMap, HTMap, MMap, FollowersMap, FollowingMap);
         {Client, Uname, signOut} ->
             io:format("~p____Client signing out_____~p~n",[Client, Uname]),
             PNMap = signout(Client, Uname, PMap),
             io:format("Clients online:  ~p~n",[PNMap]),
-            listener(UMap,PNMap)
+            listener(UMap,PNMap, TMap, HTMap, MMap, FollowersMap, FollowingMap);
+
+        %% 8/11/2022 Tweet Functionality
+        {Client, Uname, Tweet, tweet}->
+            {NewTMap, NewHTMap} = tweet(Client, Uname, Tweet, TMap, HTMap, MMap, FollowersMap),
+            listener(UMap, PMap, NewTMap, NewHTMap, MMap, FollowersMap, FollowingMap)    
+
     end.
 
 start()->
     Map = maps:new(),
     PMap = maps:new(),
-    register(server,spawn(server,listener,[Map, PMap])),
-    listener(Map, PMap).
+    TMap = maps:new(),
+    HTMap = maps:new(),
+    MMap = maps:new(),
+    FollowersMap = maps:new(),
+    FollowingMap = maps:new(),
+    register(server,spawn(server,listener,[Map, PMap, TMap, HTMap, MMap, FollowersMap, FollowingMap])),
+    listener(Map, PMap, TMap, HTMap, MMap, FollowersMap, FollowingMap).
 
 
 
