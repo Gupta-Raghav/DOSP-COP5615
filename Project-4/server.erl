@@ -72,6 +72,20 @@ tweet(Client, Uname, Tweet, TMap, HTMap, MMap, FollowersMap, UMap) ->
     Client ! {successful, "Successfully tweeted"},
     {NewTMap, NewHTMap, NewMMap}.
 
+broadcast(FollowersMap,PMap,Tweet,Uname)->
+    List = maps:get(Uname,FollowersMap),
+    %io:format("List ~p~n",[List]),
+    lists:foreach(fun(Follower)->
+
+        Flag = maps:is_key(Follower,PMap),
+        if
+            Flag ->
+                io:format("Follower ~p~n",[maps:get(Follower, PMap)]),
+                maps:get(Follower, PMap) ! {broadcast,Uname,Tweet};
+            true ->
+                ok
+        end
+            end,List).
 
 
 find_hashtags("", TweetID, HTMap) ->
@@ -132,6 +146,35 @@ find_mentions(Tweet, TweetID, MMap, UMap, Client) ->
     end.
 
 
+follow(Client,Uname, Follow, FollowersMap, FollowingMap,UMap)->
+    % io:format("Idhar aa chuka hun ~n"),
+    Flag = maps:is_key(hash(Follow), UMap),    
+    if
+        Flag ->
+            Flag2 = maps:is_key(Follow, FollowersMap),
+            if
+                Flag2 ->
+                    ExistingFollowers= maps:get(Follow, FollowersMap), %fetching the exsisting followers
+                    NewFollowersMap = maps:update(Follow, lists:append(ExistingFollowers, [Uname]), FollowersMap); % updating the existing followers with the new follower
+                true ->
+                    NewFollowersMap= maps:put(Follow, [Uname], FollowersMap) % else creating a new map in a way
+            end,
+            Flag3 = maps:is_key(Uname, FollowingMap),
+            if
+                Flag3 ->
+                    ExistingFollowing= maps:get(Uname, FollowingMap), %fetching the exsisting following list of the user
+                    NewFollowingMap = maps:update(Uname, lists:append(ExistingFollowing, [Follow]), FollowingMap);  % updating the existing followers with the new following
+                true ->
+                    NewFollowingMap= maps:put(Uname, [Follow], FollowingMap) % else creating a new map in a way
+            end,
+            io:format("NewFollowersMap ~p~n",[NewFollowersMap]),
+            io:format("NewFollowingMap ~p~n",[NewFollowingMap]),
+            Client ! {successful, "Followed the person"},
+            {NewFollowersMap, NewFollowingMap};
+        true ->
+            Client ! {failed, "The user that you are trying to mention does not exist"},
+            {FollowingMap,FollowersMap}
+    end.
 
 
 %UMap: list of all users
@@ -158,8 +201,16 @@ listener(UMap, PMap, TMap, HTMap, MMap, FollowersMap, FollowingMap)->
 
         %% 8/11/2022 Tweet Functionality
         {Client, Uname, Tweet, tweet}->
+            io:format("User wants to tweet.~n"),
             {NewTMap, NewHTMap, NewMMap} = tweet(Client, Uname, Tweet, TMap, HTMap, MMap, FollowersMap, UMap),
-            listener(UMap, PMap, NewTMap, NewHTMap, NewMMap, FollowersMap, FollowingMap)    
+            broadcast(FollowersMap,PMap,Tweet,Uname),
+            listener(UMap, PMap, NewTMap, NewHTMap, NewMMap, FollowersMap, FollowingMap);
+
+        % 11/11/2022 Follow Functionality
+        {Client, Uname, FollowU, follow}->
+            % io:format("Here.~n"),
+            {NewFollowersMap, NewFollowingMap}= follow(Client,Uname, FollowU, FollowersMap, FollowingMap,UMap),
+            listener(UMap, PMap, TMap, HTMap, MMap,NewFollowersMap, NewFollowingMap)
 
     end.
 

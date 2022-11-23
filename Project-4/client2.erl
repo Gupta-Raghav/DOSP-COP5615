@@ -1,5 +1,5 @@
--module(client2).
--compile(export_all).
+-module(client).
+-compile([export_all, nowarn_ignored, nowarn_unused_vars]).
 
 
 % spawner(0,List,_)->
@@ -18,48 +18,69 @@
 %             bear(N-1,Add)
 %     end.
 
+listener(Add,Username,Pass)->
+% list of actions
+% syntax for the acitons.
+Keyword = string:trim(io:get_line("Choose the action you want to perform: ")),
+        if
+            Keyword == "signout" ->
+                    {server, Add} ! {self(),Username,signOut},
+                    exit(normal);
+
+            %% 8/11/2022 Tweet Functionality
+
+            Keyword == "tweet" ->
+                Tweet = string:trim(io:get_line("Enter your tweet: ")),
+                {server, Add} ! {self(), Username, Tweet, tweet};
+        
+            % 11/11/2022 Follow 
+            Keyword == "follow" ->
+                Follow = string:trim(io:get_line("type @ of the username you want to follow: ")),
+                {server, Add} ! {self(), Username, Follow, follow};
+
+            true ->
+                io:format("check the keyword you entered\n"),
+                listener(Add,Username,Pass)
+        end,   
+        receive 
+            {failed,Msg} ->
+                io:format("_______________Failed._____________________________~n [Server]: ~p~n",[Msg]),
+                listener(Add,Username,Pass);
+            {successful,Msg} ->
+                io:format("_______________successfull.__________________~n [Server]: ~p~n",[Msg]),
+                listener(Add,Username,Pass);
+            {broadcast,Following,Twt} ->
+                io:format("[~p]~n : ~p~n",[Following,Twt]),
+                listener(Add,Username,Pass)
+        end.
+
+
 start(Add)->
-    % list of actions
-    % syntax for the acitons.
-    Keyword = io:get_line("Choose the action you want to perform."),
-    Username =io:get_line("Choose a Username: "),
-    %  "gupta.raghav",
-    Pass = io:get_line("Chosoe a Strong password: "),
-    % Username = "Aliya.abdullah",
-    % Pass = "DOBRAKIJAI",
-    % % Username = "gupta.raghav",
-    % % Pass = "DOSPKiJAI",
-    {server, Add} ! {self(),Username,Pass,Keyword},
-    receive 
-        {failed,Msg} ->
-            io:format("_______________Failed._____________________________~n [Server]: ~p~n",[Msg]);
-       {successful,Msg} ->
-            io:format("_______________successfull.__________________~n [Server]: ~p~n",[Msg])
+    Keyword = string:trim(io:get_line("Choose the action you want to perform: ")),
+    Username =string:trim(io:get_line("Choose a Username: ")),
+    Pass = string:trim(io:get_line("Choose a Strong password: ")),
+    
+    if
+    Keyword == "new"->
+        {server, Add} ! {self(),Username,Pass,new},
+            receive 
+            {failed,Msg} ->
+                io:format("_______________Failed._____________________________~n [Server]: ~p~n",[Msg]),
+                start(Add);
+            {successful,Msg} ->
+                io:format("_______________successfull.__________________~n [Server]: ~p~n",[Msg]),
+                listener(Add,Username,Pass)
+            end;
+    Keyword == "signin" ->
+        {server, Add} ! {self(),Username,Pass,signIn},
+        receive 
+            {failed,Msg} ->
+                io:format("_______________Failed._____________________________~n [Server]: ~p~n",[Msg]),
+                start(Add);
+            {successful,Msg} ->
+                io:format("_______________successfull.__________________~n [Server]: ~p~n",[Msg]),
+                listener(Add,Username,Pass)
+        end;
+    true ->
+        start(Add)
     end.
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-%TO Do:
-% recursive funciton for taking input constantly.
-% ADd keyword for sign up
-% implement Sign in, tweet, subscribe, timeline -> retweet, hashtag, Scheduler that runs every 5 sec for every user that shows new tweets.
-% Pause scheduler when a specific funciton is running.
-% 
-% 
-% 
-%   
-% 
-% Data structures:
-% Client struct : username, 
-% 

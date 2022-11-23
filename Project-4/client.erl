@@ -32,6 +32,12 @@ Keyword = string:trim(io:get_line("Choose the action you want to perform: ")),
             Keyword == "tweet" ->
                 Tweet = string:trim(io:get_line("Enter your tweet: ")),
                 {server, Add} ! {self(), Username, Tweet, tweet};
+        
+            % 11/11/2022 Follow 
+            Keyword == "follow" ->
+                Follow = string:trim(io:get_line("type @ of the username you want to follow: ")),
+                {server, Add} ! {self(), Username, Follow, follow};
+
             true ->
                 io:format("check the keyword you entered\n"),
                 listener(Add,Username,Pass)
@@ -42,6 +48,9 @@ Keyword = string:trim(io:get_line("Choose the action you want to perform: ")),
                 listener(Add,Username,Pass);
             {successful,Msg} ->
                 io:format("_______________successfull.__________________~n [Server]: ~p~n",[Msg]),
+                listener(Add,Username,Pass);
+            {broadcast,Following,Twt} ->
+                io:format("[~p]~n : ~p~n",[Following,Twt]),
                 listener(Add,Username,Pass)
         end.
 
