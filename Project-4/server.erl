@@ -73,19 +73,26 @@ tweet(Client, Uname, Tweet, TMap, HTMap, MMap, FollowersMap, UMap) ->
     {NewTMap, NewHTMap, NewMMap}.
 
 broadcast(FollowersMap,PMap,Tweet,Uname)->
-    List = maps:get(Uname,FollowersMap),
-    %io:format("List ~p~n",[List]),
-    lists:foreach(fun(Follower)->
+    Bool = maps:is_key(Uname, FollowersMap),
+    if
+        Bool ->
+            
+            List = maps:get(Uname,FollowersMap),
+            %io:format("List ~p~n",[List]),
+            lists:foreach(fun(Follower)->
 
-        Flag = maps:is_key(Follower,PMap),
-        if
-            Flag ->
-                io:format("Follower ~p~n",[maps:get(Follower, PMap)]),
-                maps:get(Follower, PMap) ! {broadcast,Uname,Tweet};
-            true ->
-                ok
-        end
-            end,List).
+                Flag = maps:is_key(Follower,PMap),
+                if
+                    Flag ->
+                        io:format("Follower ~p~n",[maps:get(Follower, PMap)]),
+                        maps:get(Follower, PMap) ! {broadcast,Uname,Tweet};
+                    true ->
+                        ok
+                end
+                    end,List);
+        true ->
+            ok
+    end.
 
 
 find_hashtags("", TweetID, HTMap) ->
@@ -177,6 +184,47 @@ follow(Client,Uname, Follow, FollowersMap, FollowingMap,UMap)->
     end.
 
 
+ queryht(Client, Uname, HT, HTMap, TweetMap) ->
+    Hashtag = "#"++HT,
+    Bool = maps:is_key(Hashtag, HTMap),
+
+    if
+        Bool ->
+            Tweets = maps:get(Hashtag, HTMap),
+            NewHTs = lists:map(fun(TweetID) ->
+                Tweet = maps:get(TweetID, TweetMap),
+                {U, {T, TimeStamp}} = Tweet,
+                [U, T]
+                end, Tweets),
+            %io:format("MentionedTweets:   ~p~n", [NewHTs]),
+            Client ! {queryresult, NewHTs};
+        true ->
+            Client ! {failed, "The hashtag you were trying to query does not exist"}
+    end.
+
+querymention(Client, Un, MMap, TweetMap) ->
+    Uname = "@"++Un,
+    Bool = maps:is_key(Uname, MMap),
+    %io:format("Here:   ~p~n", [Uname]),
+    if
+        Bool ->
+            Tweets = maps:get(Uname, MMap),
+            % lists:foreach(fun(TweetID)->
+            %     Tweet = maps:get(TweetID, TweetMap),
+            %     {U, {T, TimeStamp}} = Tweet,
+            %     io:format("appending:   ~p~n", [[U, T]]),
+            %     lists:append(MentionedTweets, [[[U, T]]])
+            % end, Tweets),
+            NewMentions = lists:map(fun(TweetID) ->
+                Tweet = maps:get(TweetID, TweetMap),
+                {U, {T, TimeStamp}} = Tweet,
+                [U, T]
+                end, Tweets),
+            io:format("MentionedTweets:   ~p~n", [NewMentions]),
+            Client ! {queryresult, NewMentions};
+        true ->
+            Client ! {failed, "You have not been mentioned in any tweet"}
+    end.
 %UMap: list of all users
 %PMap: list of active users
 %TMap: Map of all tweets
@@ -210,7 +258,14 @@ listener(UMap, PMap, TMap, HTMap, MMap, FollowersMap, FollowingMap)->
         {Client, Uname, FollowU, follow}->
             % io:format("Here.~n"),
             {NewFollowersMap, NewFollowingMap}= follow(Client,Uname, FollowU, FollowersMap, FollowingMap,UMap),
-            listener(UMap, PMap, TMap, HTMap, MMap,NewFollowersMap, NewFollowingMap)
+            listener(UMap, PMap, TMap, HTMap, MMap,NewFollowersMap, NewFollowingMap);
+
+        {Client, Uname, Hashtag, queryht} ->
+            queryht(Client, Uname, Hashtag, HTMap, TMap);
+
+        {Client, Uname, querymention} ->
+            %io:format("Here.~n"),
+            querymention(Client, Uname, MMap, TMap)
 
     end.
 

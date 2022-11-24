@@ -38,6 +38,13 @@ Keyword = string:trim(io:get_line("Choose the action you want to perform: ")),
                 Follow = string:trim(io:get_line("type @ of the username you want to follow: ")),
                 {server, Add} ! {self(), Username, Follow, follow};
 
+            Keyword == "queryht" ->
+                KW = string:trim(io:get_line("Enter hashtag to be queried: ")),
+                {server, Add} ! {self(), Username, KW, queryht};
+
+            Keyword == "querymention" ->
+                {server, Add} ! {self(), Username, querymention};
+
             true ->
                 io:format("check the keyword you entered\n"),
                 listener(Add,Username,Pass)
@@ -49,6 +56,12 @@ Keyword = string:trim(io:get_line("Choose the action you want to perform: ")),
             {successful,Msg} ->
                 io:format("_______________successfull.__________________~n [Server]: ~p~n",[Msg]),
                 listener(Add,Username,Pass);
+            {queryresult, MentionedTweets} ->
+                lists:foreach(fun(Tweet)->
+                io:format("Tweet Found:     ~p~n", [Tweet])
+                end, MentionedTweets),
+                listener(Add,Username,Pass);
+
             {broadcast,Following,Twt} ->
                 io:format("[~p]~n : ~p~n",[Following,Twt]),
                 listener(Add,Username,Pass)
