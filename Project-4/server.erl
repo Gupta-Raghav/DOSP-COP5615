@@ -8,22 +8,22 @@ hash(Rstring)->
     Ahstring = string:to_lower(HashStr),
     Ahstring.
 
-signup(Client,Uname, Pass,UMap,PMap ) ->
+signup(Client,C, Uname, Pass,UMap,PMap ) ->
     
     Hashpass = hash(Pass),
     HashUname = hash(Uname),
     Flag = maps:is_key(HashUname,UMap),
     if
         Flag ->
-            Client ! {failed,"Username Already taken.\n try different username.\n"},
+            C ! {failed,"Username Already taken.\n try different username.\n"},
             UMap;
         true ->
-            Client ! {successful,"Welcome"},
+            C ! {successful,"Welcome"},
             UNmap = maps:put(HashUname,Hashpass,UMap), 
             PNMap = maps:put(Uname, Client, PMap),
             {UNmap,PNMap}
     end.
-signin(Client,Uname, Pass,UMap,PMap)->
+signin(Client,C, Uname, Pass,UMap,PMap)->
     Hashpass = hash(Pass),
             HashUname = hash(Uname),
             Flag = maps:is_key(HashUname,UMap), %If the hashed username matches.
@@ -33,22 +33,24 @@ signin(Client,Uname, Pass,UMap,PMap)->
                     % only if the password matches
                     if
                         Cpass == Hashpass ->
-                        Client ! {successful,"Successfully logged-in."},
+                        C ! {successful,"Successfully logged-in."},
                         PNMap = maps:put(Uname, Client, PMap),
                         PNMap;
                         true ->
-                        Client ! {failed,"Login-failed, Password that you entered is wrong."}
+                        C ! {failed,"Login-failed, Password that you entered is wrong."}
                     end;
                 true ->
-                    Client ! {failed,"Username that you entered does not exist. Create an account with new keyword."}
+                    C ! {failed,"Username that you entered does not exist. Create an account with new keyword."}
             end.
-signout(Client, Uname, PMap) ->
+signout(Client, Uname, PMap, LMap) ->
     Flag = maps:is_key(Uname, PMap),
     if 
         Flag->
             NPMap = maps:remove(Uname, PMap),
+            NLMap = maps:put(Uname, calendar:now_to_datetime(erlang:timestamp()), LMap),
+            io:format("Logging out map:     ~p~n", [NLMap]),
             Client ! {successful,"Successfully logged-out."},
-            NPMap;
+            {NPMap, NLMap};
         true->
             Client ! {failed,"Username that you entered does not exist"}
     end.
@@ -225,47 +227,108 @@ querymention(Client, Un, MMap, TweetMap) ->
         true ->
             Client ! {failed, "You have not been mentioned in any tweet"}
     end.
+
+
+
+retweet(Client, Uname, TweetID, TMap, FollowersMap, PMap) ->
+    Bool = maps:is_key(TweetID, TMap),
+    if
+        Bool ->
+            Tweet = maps:get(TweetID, TMap),
+            {U, {T, TimeStamp}} = Tweet,
+            NewTweet = "RT@" ++ U ++ ": " ++ T,
+            Keys = maps:keys(TMap),
+            NewTweetID = TweetID = lists:max(Keys) + 1,
+            NewTMap = maps:put(NewTweetID, {Uname, {NewTweet, calendar:now_to_datetime(erlang:timestamp())}}, TMap),
+            broadcast(FollowersMap,PMap,NewTweet,Uname),
+            NewTMap;
+        true ->
+            Client ! {failed, "Tweet does not exist"}
+    end.
+
+timeline(ClientR, Uname, TMap, LMap, FollowingMap) ->
+    Bool = maps:is_key(Uname, LMap),
+    if 
+        Bool ->
+            IfHasFollowing = maps:is_key(Uname, FollowingMap),
+            if
+                IfHasFollowing ->
+                    Following = maps:get(Uname, FollowingMap),
+                    Signout = maps:get(Uname, LMap),
+                    maps:foreach(fun(TweetID, Tweet) ->
+                        {U, {T, TimeStamp}} = Tweet,
+                        IfFollowing = lists:member(U, Following),
+                        if
+                            IfFollowing ->
+                                TSCompare = min(TimeStamp, Signout),
+                                if 
+                                    TSCompare == Signout ->
+                                        ClientR ! {timeline, U, T};
+                                    true ->
+                                        ok
+                                end;
+                            true ->
+                                ok
+                        end
+                        end, TMap);
+                true ->
+                    ok
+            end;
+        true ->
+            ok
+    end.
+
+
+
 %UMap: list of all users
 %PMap: list of active users
 %TMap: Map of all tweets
 %HTMap: hashtag map
 %MMap: mentions map
-listener(UMap, PMap, TMap, HTMap, MMap, FollowersMap, FollowingMap)->
+%LMap: Last logout map
+listener(UMap, PMap, TMap, HTMap, MMap, FollowersMap, FollowingMap, LMap)->
     receive
-        {Client,Uname, Pass,new} ->
+        {ClientR, Client, Uname, Pass,new} ->
             io:format("~p________Client is trying to connect_______________~p~n",[Client,Uname]),
-            {UNmap, PNMap}= signup(Client,Uname, Pass,UMap,PMap),
-            listener(UNmap, PNMap, TMap, HTMap, MMap, FollowersMap, FollowingMap);
-        {Client,Uname, Pass,signIn} ->
+            {UNmap, PNMap}= signup(ClientR,Client,Uname, Pass,UMap,PMap),
+            listener(UNmap, PNMap, TMap, HTMap, MMap, FollowersMap, FollowingMap, LMap);
+        {ClientR,Client,Uname, Pass,signIn} ->
             io:format("~p________Client is trying to connect_______________~p~n",[Client,Uname]),
-            PNMap = signin(Client,Uname, Pass,UMap,PMap),
+            PNMap = signin(ClientR,Client,Uname, Pass,UMap,PMap),
+            timeline(ClientR, Uname, TMap, LMap, FollowingMap),
             io:format("Clients online:  ~p~n",[PNMap]),
-            listener(UMap, PNMap, TMap, HTMap, MMap, FollowersMap, FollowingMap);
+            listener(UMap, PNMap, TMap, HTMap, MMap, FollowersMap, FollowingMap, LMap);
         {Client, Uname, signOut} ->
             io:format("~p____Client signing out_____~p~n",[Client, Uname]),
-            PNMap = signout(Client, Uname, PMap),
+            {PNMap, LNMap} = signout(Client, Uname, PMap, LMap),
             io:format("Clients online:  ~p~n",[PNMap]),
-            listener(UMap,PNMap, TMap, HTMap, MMap, FollowersMap, FollowingMap);
+            listener(UMap,PNMap, TMap, HTMap, MMap, FollowersMap, FollowingMap, LNMap);
 
         %% 8/11/2022 Tweet Functionality
         {Client, Uname, Tweet, tweet}->
-            io:format("User wants to tweet.~n"),
+            %io:format("User wants to tweet.~n"),
             {NewTMap, NewHTMap, NewMMap} = tweet(Client, Uname, Tweet, TMap, HTMap, MMap, FollowersMap, UMap),
             broadcast(FollowersMap,PMap,Tweet,Uname),
-            listener(UMap, PMap, NewTMap, NewHTMap, NewMMap, FollowersMap, FollowingMap);
+            listener(UMap, PMap, NewTMap, NewHTMap, NewMMap, FollowersMap, FollowingMap, LMap);
 
         % 11/11/2022 Follow Functionality
         {Client, Uname, FollowU, follow}->
             % io:format("Here.~n"),
             {NewFollowersMap, NewFollowingMap}= follow(Client,Uname, FollowU, FollowersMap, FollowingMap,UMap),
-            listener(UMap, PMap, TMap, HTMap, MMap,NewFollowersMap, NewFollowingMap);
+            listener(UMap, PMap, TMap, HTMap, MMap,NewFollowersMap, NewFollowingMap, LMap);
 
         {Client, Uname, Hashtag, queryht} ->
-            queryht(Client, Uname, Hashtag, HTMap, TMap);
+            queryht(Client, Uname, Hashtag, HTMap, TMap),
+            listener(UMap, PMap, TMap, HTMap, MMap,FollowersMap, FollowingMap, LMap);
 
         {Client, Uname, querymention} ->
             %io:format("Here.~n"),
-            querymention(Client, Uname, MMap, TMap)
+            querymention(Client, Uname, MMap, TMap),
+            listener(UMap, PMap, TMap, HTMap, MMap,FollowersMap, FollowingMap, LMap);
+
+        {Client, Uname, TweetID, retweet} ->
+            NewTMap = retweet(Client, Uname, TweetID, TMap, FollowersMap, PMap),
+            listener(UMap, PMap, NewTMap, HTMap, MMap,FollowersMap, FollowingMap, LMap)
 
     end.
 
@@ -275,12 +338,13 @@ start()->
     TMap = maps:new(),
     HTMap = maps:new(),
     MMap = maps:new(),
+    LMap = maps:new(),
     FollowersMap = maps:new(),
     FollowingMap = maps:new(),
     UMap = map_populator(Map, ["raghav", "aliya", "prakhar", "dobra"]),
     io:format("done updating map ~n"),
-    register(server,spawn(server,listener,[UMap, PMap, TMap, HTMap, MMap, FollowersMap, FollowingMap])),
-    listener(UMap, PMap, TMap, HTMap, MMap, FollowersMap, FollowingMap).
+    register(server,spawn(server,listener,[UMap, PMap, TMap, HTMap, MMap, FollowersMap, FollowingMap, LMap])),
+    listener(UMap, PMap, TMap, HTMap, MMap, FollowersMap, FollowingMap, LMap).
 
 map_populator(Map, []) ->
     Map;
