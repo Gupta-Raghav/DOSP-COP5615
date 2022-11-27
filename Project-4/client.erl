@@ -21,7 +21,7 @@
 listener(Add,Username,Pass, Receiver)->
 % list of actions
 % syntax for the acitons.
-Keyword = string:trim(io:get_line("Choose the action you want to perform: ")),
+Keyword = string:trim(io:get_line("Choose the action you want to perform: ~n")),
 
         if
             Keyword == "signout" ->

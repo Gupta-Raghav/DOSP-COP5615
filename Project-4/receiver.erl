@@ -13,17 +13,18 @@ receiver(Add,Username,Pass) ->
             {queryresult, MentionedTweets} ->
                 
                 lists:foreach(fun(Tweet)->
-                %io:format("Tweet Found:     ~p~n", [Tweet])
-                file:write_file("output.txt", io_lib:fwrite("Tweet Found:     ~p~n", [MentionedTweets]), [append])
+                io:format("Tweet Found:     ~p~n", [MentionedTweets])
+                %file:write_file("output.txt", io_lib:fwrite("Tweet Found:     ~p~n", [MentionedTweets]), [append])
                 end, MentionedTweets),
                 receiver(Add,Username,Pass);
 
             {timeline, U, Tweet} ->
-                file:write_file("output.txt", io_lib:fwrite("[~p]~n : ~p~n",[U,Tweet]), [append]),
+                io:format("[~p]~n : ~p~n",[U,Tweet]),
+                %file:write_file("output.txt", io_lib:fwrite("[~p]~n : ~p~n",[U,Tweet]), [append]),
                 receiver(Add,Username,Pass);
 
             {broadcast,Following,Twt} ->
-                %io:format("[~p]~n : ~p~n",[Following,Twt]),
-                file:write_file("output.txt", io_lib:fwrite("[~p]~n : ~p~n",[Following,Twt]), [append]),
+                io:format("[~p]~n : ~p~n",[Following,Twt]),
+                %file:write_file("output.txt", io_lib:fwrite("[~p]~n : ~p~n",[Following,Twt]), [append]),
                 receiver(Add,Username,Pass)
     end.
