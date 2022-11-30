@@ -84,7 +84,8 @@ start(Add)->
     Username =string:trim(io:get_line("Choose a Username: ")),
     Pass = string:trim(io:get_line("Choose a Strong password: ")),
     Receiver = spawn(receiver, receiver, [Add,Username,Pass]),
-    
+    % io:format("~p,~p,~p,~p~n",[Add,Keyword,Username, Pass]),
+    io:format("~p~n",[net_adm:ping('server@RGsLegion')]),
     if
     Keyword == "new"->
         {server, Add} ! {Receiver, self(), Username,Pass,new},

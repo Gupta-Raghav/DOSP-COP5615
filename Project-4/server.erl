@@ -289,7 +289,7 @@ timeline(ClientR, Uname, TMap, LMap, FollowingMap) ->
 listener(UMap, PMap, TMap, HTMap, MMap, FollowersMap, FollowingMap, LMap)->
     receive
         {ClientR, Client, Uname, Pass,new} ->
-            io:format("~p________Client is trying to connect_______________~p~n",[Client,Uname]),
+            % io:format("~p________Client is trying to connect_______________~p~n",[Client,Uname]),
             {UNmap, PNMap}= signup(ClientR,Client,Uname, Pass,UMap,PMap),
             listener(UNmap, PNMap, TMap, HTMap, MMap, FollowersMap, FollowingMap, LMap);
         {ClientR,Client,Uname, Pass,signIn} ->
@@ -328,7 +328,9 @@ listener(UMap, PMap, TMap, HTMap, MMap, FollowersMap, FollowingMap, LMap)->
 
         {Client, Uname, TweetID, retweet} ->
             NewTMap = retweet(Client, Uname, TweetID, TMap, FollowersMap, PMap),
-            listener(UMap, PMap, NewTMap, HTMap, MMap,FollowersMap, FollowingMap, LMap)
+            listener(UMap, PMap, NewTMap, HTMap, MMap,FollowersMap, FollowingMap, LMap);
+        _ ->
+            io:format("Default~n")
 
     end.
 
@@ -343,8 +345,8 @@ start()->
     FollowingMap = maps:new(),
     UMap = map_populator(Map, ["raghav", "aliya", "prakhar", "dobra"]),
     io:format("done updating map ~n"),
-    register(server,spawn(server,listener,[UMap, PMap, TMap, HTMap, MMap, FollowersMap, FollowingMap, LMap])),
-    listener(UMap, PMap, TMap, HTMap, MMap, FollowersMap, FollowingMap, LMap).
+    register(server,spawn(server,listener,[UMap, PMap, TMap, HTMap, MMap, FollowersMap, FollowingMap, LMap])).
+    % listener(UMap, PMap, TMap, HTMap, MMap, FollowersMap, FollowingMap, LMap).
 
 map_populator(Map, []) ->
     Map;
