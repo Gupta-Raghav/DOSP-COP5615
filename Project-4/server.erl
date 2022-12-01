@@ -48,7 +48,7 @@ signout(Client, Uname, PMap, LMap) ->
         Flag->
             NPMap = maps:remove(Uname, PMap),
             NLMap = maps:put(Uname, calendar:now_to_datetime(erlang:timestamp()), LMap),
-            io:format("Logging out map:     ~p~n", [NLMap]),
+            % io:format("Logging out map:     ~p~n", [NLMap]),
             Client ! {successful,"Successfully logged-out."},
             {NPMap, NLMap};
         true->
@@ -67,15 +67,16 @@ tweet(Client, Uname, Tweet, TMap, HTMap, MMap, FollowersMap, UMap) ->
     NewHTMap = find_hashtags(Tweet, TweetID, HTMap),
     NewMMap = find_mentions(Tweet, TweetID, MMap, UMap, Client),
     NewTMap = maps:put(TweetID, {Uname, {Tweet, calendar:now_to_datetime(erlang:timestamp())}}, TMap), 
-    io:format("Tweets:   ~p~n", [NewTMap]),
-    io:format("HTMap:   ~p~n", [NewHTMap]),
-    io:format("MMap:   ~p~n", [NewMMap]),
+    % io:format("Tweets:   ~p~n", [NewTMap]),
+    % io:format("HTMap:   ~p~n", [NewHTMap]),
+    % io:format("MMap:   ~p~n", [NewMMap]),
     %% todo: broadcast function
     Client ! {successful, "Successfully tweeted"},
     {NewTMap, NewHTMap, NewMMap}.
 
 broadcast(FollowersMap,PMap,Tweet,Uname)->
     Bool = maps:is_key(Uname, FollowersMap),
+    % io:format("Uname ~p BROADCAST Follower ~p~n",[Uname,FollowersMap]),
     if
         Bool ->
             
@@ -84,9 +85,11 @@ broadcast(FollowersMap,PMap,Tweet,Uname)->
             lists:foreach(fun(Follower)->
 
                 Flag = maps:is_key(Follower,PMap),
+                
                 if
                     Flag ->
-                        io:format("Follower ~p~n",[maps:get(Follower, PMap)]),
+                        
+                        % io:format("Follower ~p~n",[maps:get(Follower, PMap)]),
                         maps:get(Follower, PMap) ! {broadcast,Uname,Tweet};
                     true ->
                         ok
@@ -176,8 +179,8 @@ follow(Client,Uname, Follow, FollowersMap, FollowingMap,UMap)->
                 true ->
                     NewFollowingMap= maps:put(Uname, [Follow], FollowingMap) % else creating a new map in a way
             end,
-            io:format("NewFollowersMap ~p~n",[NewFollowersMap]),
-            io:format("NewFollowingMap ~p~n",[NewFollowingMap]),
+            % io:format("NewFollowersMap ~p~n",[NewFollowersMap]),
+            % io:format("NewFollowingMap ~p~n",[NewFollowingMap]),
             Client ! {successful, "Followed the person"},
             {NewFollowersMap, NewFollowingMap};
         true ->
@@ -222,7 +225,7 @@ querymention(Client, Un, MMap, TweetMap) ->
                 {U, {T, TimeStamp}} = Tweet,
                 [U, T]
                 end, Tweets),
-            io:format("MentionedTweets:   ~p~n", [NewMentions]),
+            % io:format("MentionedTweets:   ~p~n", [NewMentions]),
             Client ! {queryresult, NewMentions};
         true ->
             Client ! {failed, "You have not been mentioned in any tweet"}
@@ -296,12 +299,12 @@ listener(UMap, PMap, TMap, HTMap, MMap, FollowersMap, FollowingMap, LMap)->
             io:format("~p________Client is trying to connect_______________~p~n",[Client,Uname]),
             PNMap = signin(ClientR,Client,Uname, Pass,UMap,PMap),
             timeline(ClientR, Uname, TMap, LMap, FollowingMap),
-            io:format("Clients online:  ~p~n",[PNMap]),
+            % io:format("Clients online:  ~p~n",[PNMap]),
             listener(UMap, PNMap, TMap, HTMap, MMap, FollowersMap, FollowingMap, LMap);
         {Client, Uname, signOut} ->
-            io:format("~p____Client signing out_____~p~n",[Client, Uname]),
+            % io:format("~p____Client signing out_____~p~n",[Client, Uname]),
             {PNMap, LNMap} = signout(Client, Uname, PMap, LMap),
-            io:format("Clients online:  ~p~n",[PNMap]),
+            % io:format("Clients online:  ~p~n",[PNMap]),
             listener(UMap,PNMap, TMap, HTMap, MMap, FollowersMap, FollowingMap, LNMap);
 
         %% 8/11/2022 Tweet Functionality

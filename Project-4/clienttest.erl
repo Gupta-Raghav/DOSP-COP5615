@@ -24,7 +24,7 @@ listener(Add,Username,Pass, Receiver)->
 % Keyword = string:trim(io:get_line("Choose the action you want to perform: ~n")),
 
         receive
-            "signout" ->
+            {signout} ->
                     {server, Add} ! {Receiver,Username,signOut},
                     exit(Receiver, normal),
                     exit(normal);
@@ -37,9 +37,10 @@ listener(Add,Username,Pass, Receiver)->
                 % {server, Add} ! {Receiver, Username, Tweet, tweet};
         
             % 11/11/2022 Follow 
-            "follow" ->
-                Follow = string:trim(io:get_line("type @ of the username you want to follow: ")),
-                {server, Add} ! {Receiver, Username, Follow, follow};
+            {follow, List} ->
+                % Follow = string:trim(io:get_line("type @ of the username you want to follow: ")),
+                N = length(List),
+                follow(Add,Receiver, Username, List, N);
 
             "queryht" ->
                 KW = string:trim(io:get_line("Enter hashtag to be queried: ")),
@@ -60,13 +61,25 @@ listener(Add,Username,Pass, Receiver)->
 
 tweet(Add, Receiver,Username, Tweet) ->
     {server, Add} ! {Receiver, Username, Tweet, tweet}.
+    % ok.
+
+follow(Add,Receiver, Username, Follow,0)->
+    ok;
+    % {server, Add} ! {Receiver, Username, Follow, follow};
+
+follow(Add,Receiver, Username, List,N)->
+    lists:foreach(fun(FollowElem)->
+        {Follow, FPID} = FollowElem,
+        {server, Add} ! {Receiver, Username, Follow, follow}
+             end,List).
+    
 
 
 start(Add,Keyword,Username, Pass,SimPID)->
     % Keyword = string:trim(io:get_line("Choose the action you want to perform: ")),
     % Username =string:trim(io:get_line("Choose a Username: ")),
     % Pass = string:trim(io:get_line("Choose a Strong password: ")),
-    Receiver = spawn(receiver, receiver, [Add,Username,Pass]),
+    Receiver = spawn(testReceiver, receiver, [Add,Username,Pass]),
     % SimPID ! {self(),Add,Keyword,Username, Pass,Receiver},
     % Receiver = self(),
     % SimPID ! {self(),whereis(server)},
@@ -83,9 +96,8 @@ start(Add,Keyword,Username, Pass,SimPID)->
                 start(Add,Keyword,Username, Pass,SimPID);
             {successful,Msg} ->
                 % io:format("_______________successfull.__________________~n [Server]: ~p~n",[Msg]),
-                SimPID ! {success},
+                SimPID ! {singUpSuccess},
                 listener(Add,Username,Pass, Receiver)
-                
             end;
     Keyword == "signin" ->
         {server, Add} ! {Receiver, self(), Username,Pass,signIn},

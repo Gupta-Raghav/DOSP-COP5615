@@ -3,19 +3,35 @@
 
 start(Add, N)->
     statistics(wall_clock),
-    PID =spawn(simulator, listener,[N]),
+    PID =spawn(simulator, listener,[N,N,N]),
     register(simListener,PID),
     UserList = spawner(N,Add, [],PID),
     lists:foreach(fun(Client)->
                     % io:format("~p Client~n",[Client])
                     {Name, ClientPID}= Client,
+                    I=string:str(UserList, [Client]),
+                    List = lists:nthtail(I,UserList),
+                    % io:format("~p List for ~p ~n",[List, Client]),
+                    ClientPID ! {follow, List}
+                 end,UserList),
+                 timer:sleep(500),
+    lists:foreach(fun(Client)->
+                    % io:format("~p Client~n",[Client])
+                    {Name, ClientPID}= Client,
                     % io:format("~p Client Name ~n",[Name]),
                     % io:format("~p Client PID ~n",[PID])
+                    A= rand:uniform(10),
+                    if
+                        A >= 8->
+                            ClientPID ! {signout};
+                        true ->
+                          ok  
+                    end,
                     ClientPID ! {tweet, Name}
                  end,UserList).
     % FollowList = lists:sublist(UserList, N/2),
     % follow(N, Add,FollowList).
-    
+ 
 
 
 % follow(N, Add,FollowList)->
@@ -30,17 +46,23 @@ start(Add, N)->
 %                 io:format("~p ~p~n",[From,Msg]) 
 %     end,
 %     spawner(NUsers-1, Add, [{Name,PID} | Users]). 
-listener(0) ->
+listener(N,SignUpCount,_) when SignUpCount==0 ->
     {_,TimeEnd} = statistics(wall_clock),
     io:format("Time taken to Singup new users ~p seconds~n", [TimeEnd/1000]),
     io:format("Simulating Follow requests ~n");
 
+listener(N,_,TweetCount) when TweetCount==0.8*(TweetCount) ->
+    {_,TimeEnd} = statistics(wall_clock),
+    io:format("Time taken to Tweet ~p seconds~n", [TimeEnd/1000]);
+    % io:format("Simulating Follow requests ~n");
 
-listener(N)->
+listener(N,SignUpCount,TweetCount)->
     receive
-        {success} ->
-            % io:format(N-1),
-            listener(N-1)
+        {singUpSuccess} ->
+            listener(N,SignUpCount-1,TweetCount);
+        {tweetSuccess} ->
+            io:format("tweet message ~p~n",[TweetCount]),
+            listener(N,SignUpCount,TweetCount-1)
     end.
 
 spawner(0,_,Users,_)->
