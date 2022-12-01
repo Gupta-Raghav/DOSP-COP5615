@@ -75,11 +75,11 @@ follow(Add,Receiver, Username, List,N)->
     
 
 
-start(Add,Keyword,Username, Pass,SimPID)->
+start(Add,Keyword,Username, Pass,SimPID,FPID,TPID)->
     % Keyword = string:trim(io:get_line("Choose the action you want to perform: ")),
     % Username =string:trim(io:get_line("Choose a Username: ")),
     % Pass = string:trim(io:get_line("Choose a Strong password: ")),
-    Receiver = spawn(testReceiver, receiver, [Add,Username,Pass]),
+    Receiver = spawn(testReceiver, receiver, [Add,Username,Pass,FPID,TPID]),
     % SimPID ! {self(),Add,Keyword,Username, Pass,Receiver},
     % Receiver = self(),
     % SimPID ! {self(),whereis(server)},
@@ -93,7 +93,7 @@ start(Add,Keyword,Username, Pass,SimPID)->
             {failed,Msg} ->
                 % io:format("_______________Failed._____________________________~n [Server]: ~p~n",[Msg]),
                 % SimPID ! {self(),Msg},
-                start(Add,Keyword,Username, Pass,SimPID);
+                start(Add,Keyword,Username, Pass,SimPID,FPID,TPID);
             {successful,Msg} ->
                 % io:format("_______________successfull.__________________~n [Server]: ~p~n",[Msg]),
                 SimPID ! {singUpSuccess},
@@ -104,11 +104,11 @@ start(Add,Keyword,Username, Pass,SimPID)->
         receive 
             {failed,Msg} ->
                 % io:format("_______________Failed._____________________________~n [Server]: ~p~n",[Msg]),
-                start(Add,Keyword,Username, Pass,SimPID);
+                start(Add,Keyword,Username, Pass,SimPID,FPID,TPID);
             {successful,Msg} ->
                 % io:format("_______________successfull.__________________~n [Server]: ~p~n",[Msg]),
                 listener(Add,Username,Pass, Receiver)
         end;
     true ->
-        start(Add,Keyword,Username, Pass,SimPID)
+        start(Add,Keyword,Username, Pass,SimPID,FPID,TPID)
     end.
